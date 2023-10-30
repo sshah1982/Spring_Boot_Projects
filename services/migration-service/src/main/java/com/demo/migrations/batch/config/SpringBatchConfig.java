@@ -4,6 +4,7 @@ import javax.sql.DataSource;
 
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
+import org.springframework.batch.core.configuration.annotation.JobScope;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
@@ -19,6 +20,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 import com.demo.migrations.batch.listener.JobListener;
 import com.demo.migrations.batch.listener.ReadItemListener;
+import com.demo.migrations.batch.listener.WriteItemListener;
 import com.demo.migrations.batch.writer.MongoCustomWriter;
 import com.demo.migrations.model.mysql.SourceCity;
 import com.demo.migrations.util.CityRowMapper;
@@ -33,6 +35,13 @@ public class SpringBatchConfig {
 	@Bean
 	protected PlatformTransactionManager transactionManager(DataSource ds) {
 		return new DataSourceTransactionManager(dataSource);
+	}
+	
+	@Bean(name = "migrationJobExecStatus")
+	@Qualifier("migrationJobExecStatus")
+	@JobScope
+	protected MigrationJobExecStatus migrationJobExecStatus() {
+		return new MigrationJobExecStatus();
 	}
 
 	@Bean
@@ -53,12 +62,22 @@ public class SpringBatchConfig {
 	@Qualifier("step")
 	protected Step step(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
 		return new StepBuilder("migrationStep", jobRepository).<SourceCity, SourceCity>chunk(10, transactionManager)
-				.reader(itemReader()).writer(mongoWriter()).listener(new ReadItemListener()).listener(new JobListener()).build();
+				.reader(itemReader()).writer(mongoWriter())
+				.listener(new ReadItemListener())
+				.listener(new WriteItemListener(migrationJobExecStatus()))
+				.faultTolerant()
+				.skipPolicy(new CustomSkipPolicy())
+				.build();
 	}
 
 	@Bean(name = "job")
 	protected Job job(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
-		return new JobBuilder("migrationjob", jobRepository).start(step(jobRepository, transactionManager)).build();
+		return new JobBuilder("migrationjob", jobRepository)
+				.start(step(jobRepository, transactionManager))
+				.listener(new JobListener(migrationJobExecStatus()))
+				.build();
 	}
+	
+	
 
 }

@@ -18,15 +18,14 @@ public class MigrationController {
 	private SpringBatchManager manager;
 	
 	@GetMapping("/invoke")
-	public ResponseEntity<String> invoke() throws Exception {
+	public ResponseEntity<String> invoke() {
 		try {
 			log.info("Invoked batch job through controller");
 			manager.invokeBatchJob();
 			log.info("Invoked batch job through controller completed");
 			return new ResponseEntity<String>("Success", HttpStatus.OK);
 		} catch(Exception e) {
-			//return ResponseHandler.generateResponse("Error happened while processing data!", HttpStatus.CONFLICT, e.getMessage(), request.getRequestURI());
-			return new ResponseEntity<String>("Error happened while processing data!", HttpStatus.CONFLICT);
+			return new ResponseEntity<String>(e.getMessage(), HttpStatus.CONFLICT);
 		}
 	}
 }

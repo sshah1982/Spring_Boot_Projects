@@ -1,32 +1,38 @@
 package com.demo.migrations.batch.listener;
 
-import java.util.List;
-
+import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.JobExecutionListener;
-import org.springframework.stereotype.Component;
+
+import com.demo.migrations.batch.config.MigrationJobExecStatus;
 
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@Component
-public class JobListener implements JobExecutionListener {
+public class JobListener implements JobExecutionListener  {
 	
-	@Override
-	public void beforeJob(JobExecution jobExecution) {
-		log.info("beforeJob method started, status: {}", jobExecution.getStatus());
-	}
+	private MigrationJobExecStatus migrationJobExecStatus;
 	
-	@Override
-	public void afterJob(JobExecution jobExecution) {
-		log.info("afterJob method started, status: {}", jobExecution.getStatus());
-		if (jobExecution.getStatus().isUnsuccessful()) {
-			log.error("Job is failed due to below errors");
-		    List<Throwable> exceptions = jobExecution.getAllFailureExceptions();
-		    for (Throwable t : exceptions) {
-		        log.error(t.getMessage());
-		    }
-		}
+	public JobListener(MigrationJobExecStatus migrationJobExecStatus) {
+		super();
+		this.migrationJobExecStatus = migrationJobExecStatus;
+		
 	}
 
+	@Override
+	public void beforeJob(JobExecution jobExecution) {
+		// TODO Auto-generated method stub
+		migrationJobExecStatus.getParams().put("DuplicateKeyCounter", 0L);
+	}
+
+	@Override
+	public void afterJob(JobExecution jobExecution) {
+		// TODO Auto-generated method stub
+		long cnt = migrationJobExecStatus.getParams().get("DuplicateKeyCounter");
+		log.info("AFTER JOB CNT IS : " + cnt);
+		
+		if(cnt > 0L) {
+			jobExecution.setExitStatus(new ExitStatus("Duplicate keys found"));
+		}
+	}
 }
